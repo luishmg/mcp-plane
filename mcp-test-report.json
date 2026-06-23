@@ -1,0 +1,300 @@
+{
+  "server": {
+    "initialize": {
+      "protocolVersion": "2025-11-25",
+      "capabilities": {
+        "tools": {}
+      },
+      "serverInfo": {
+        "name": "plane-mcp",
+        "version": "1.0.0"
+      },
+      "instructions": "This server exposes Plane work-item (task) management tools. All calls require workspace_slug and project_id to scope the operation. Available tools: list_tasks, get_task, create_task, update_task, delete_task."
+    },
+    "resources_list_error": "resources/list failed: [-32601] Method not found: resources/list",
+    "prompts_list_error": "prompts/list failed: [-32601] Method not found: prompts/list"
+  },
+  "tools": [
+    {
+      "name": "list_tasks",
+      "description": "List work items (tasks) in a Plane project. Returns paginated, cursor-based results.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace_slug": {
+            "type": "string",
+            "description": "Slug of the Plane workspace the project belongs to"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "UUID of the Plane project"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Pagination cursor returned by a previous call"
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "Page size (max 100)",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "workspace_slug",
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "get_task",
+      "description": "Retrieve a single Plane work item by its ID.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace_slug": {
+            "type": "string",
+            "description": "Slug of the Plane workspace the project belongs to"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "UUID of the Plane project"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "UUID of the work item"
+          }
+        },
+        "required": [
+          "workspace_slug",
+          "project_id",
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "create_task",
+      "description": "Create a new work item (task) in a Plane project.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace_slug": {
+            "type": "string",
+            "description": "Slug of the Plane workspace the project belongs to"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "UUID of the Plane project"
+          },
+          "name": {
+            "type": "string",
+            "description": "Task title"
+          },
+          "description_html": {
+            "type": "string",
+            "description": "Task description (Plane accepts HTML)"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "URGENT"
+            ],
+            "description": "Priority of the task",
+            "default": "MEDIUM"
+          },
+          "state": {
+            "type": "string",
+            "description": "Workflow state name (e.g. 'Backlog')"
+          },
+          "target_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Due date in ISO 8601 format"
+          }
+        },
+        "required": [
+          "workspace_slug",
+          "project_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_task",
+      "description": "Partially update an existing Plane work item.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace_slug": {
+            "type": "string",
+            "description": "Slug of the Plane workspace the project belongs to"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "UUID of the Plane project"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "UUID of the work item to update"
+          },
+          "name": {
+            "type": "string",
+            "description": "New title"
+          },
+          "description_html": {
+            "type": "string",
+            "description": "New description (HTML)"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "URGENT"
+            ],
+            "description": "New priority"
+          },
+          "state": {
+            "type": "string",
+            "description": "New workflow state name"
+          },
+          "target_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "New due date in ISO 8601 format"
+          }
+        },
+        "required": [
+          "workspace_slug",
+          "project_id",
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "delete_task",
+      "description": "Delete a Plane work item by ID.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace_slug": {
+            "type": "string",
+            "description": "Slug of the Plane workspace the project belongs to"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "UUID of the Plane project"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "UUID of the work item to delete"
+          }
+        },
+        "required": [
+          "workspace_slug",
+          "project_id",
+          "task_id"
+        ]
+      }
+    }
+  ],
+  "resources": [],
+  "prompts": [],
+  "results": [
+    {
+      "name": "list_tasks",
+      "category": "read",
+      "status": "tool_error",
+      "cleanup": "not_required",
+      "args": {
+        "workspace_slug": "test",
+        "project_id": "1"
+      },
+      "detail": "isError=true",
+      "content_preview": "Failed to list tasks: Plane API 404 for GET /api/v1/workspaces/test/projects/1/work-items/: {\"error\": \"Page not found.\"}",
+      "error": "Failed to list tasks: Plane API 404 for GET /api/v1/workspaces/test/projects/1/work-items/: {\"error\": \"Page not found.\"}"
+    },
+    {
+      "name": "get_task",
+      "category": "read",
+      "status": "tool_error",
+      "cleanup": "not_required",
+      "args": {
+        "workspace_slug": "test",
+        "project_id": "1",
+        "task_id": "1"
+      },
+      "detail": "isError=true",
+      "content_preview": "Failed to get task 1: Plane API 404 for GET /api/v1/workspaces/test/projects/1/work-items/1/: {\"error\": \"Page not found.\"}",
+      "error": "Failed to get task 1: Plane API 404 for GET /api/v1/workspaces/test/projects/1/work-items/1/: {\"error\": \"Page not found.\"}"
+    },
+    {
+      "name": "create_task",
+      "category": "create",
+      "status": "tool_error",
+      "cleanup": "not_required",
+      "args": {
+        "workspace_slug": "__mcp_test__",
+        "project_id": "1",
+        "name": "__mcp_test__"
+      },
+      "detail": "create returned isError",
+      "content_preview": "",
+      "error": "Failed to create task: Plane API 404 for POST /api/v1/workspaces/__mcp_test__/projects/1/work-items/: {\"error\": \"Page not found.\"}"
+    },
+    {
+      "name": "update_task",
+      "category": "update",
+      "status": "tool_error",
+      "cleanup": "not_required",
+      "args": {
+        "workspace_slug": "__mcp_test__",
+        "project_id": "1",
+        "task_id": "1"
+      },
+      "detail": "seed create create_task returned isError",
+      "content_preview": "",
+      "error": "Failed to create task: Plane API 404 for POST /api/v1/workspaces/__mcp_test__/projects/1/work-items/: {\"error\": \"Page not found.\"}"
+    }
+  ],
+  "summary": {
+    "elapsed_seconds": 0.43,
+    "total_tools": 5,
+    "by_category": {
+      "read": 2,
+      "create": 1,
+      "update": 1,
+      "delete": 1,
+      "other": 0
+    },
+    "by_status": {
+      "pass": 0,
+      "tool_error": 4,
+      "protocol_error": 0,
+      "skipped": 0,
+      "untested": 0
+    },
+    "cleanup": {
+      "cleaned_up": 0,
+      "cleanup_failed": 0,
+      "id_unknown": 0
+    },
+    "untested_manual_count": 0
+  },
+  "pairs_tested": [
+    {
+      "create": "create_task",
+      "delete": "delete_task"
+    },
+    {
+      "create": "update_task",
+      "delete": "delete_task"
+    }
+  ],
+  "untested_manual": []
+}
