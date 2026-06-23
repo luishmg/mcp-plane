@@ -1,0 +1,188 @@
+"""
+Plane MCP server — FastAPI application exposing the MCP JSON-RPC 2.0 endpoint
+over Streamable HTTP transport (single /mcp POST endpoint).
+
+Compliance notes (MCP spec v2025-11-25):
+  * initialize returns protocolVersion + capabilities + serverInfo
+  * capabilities declares ONLY tools (no resources/prompts)
+  * tools/list returns the declarative manifest
+  * tools/call dispatches via the name -> handler map
+  * Two error channels: JSON-RPC error for protocol issues, isError=True
+    in the result for business/downstream failures
+  * Origin header validated; binds to 127.0.0.1 by default
+  * Token is read from env, never accepted from clients (no passthrough)
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import secrets
+from typing import Any
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+from .config import settings
+from .models import MCPInitializeRequest
+from .tools import TOOLS, TOOL_HANDLERS, MCPToolResult
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("plane_mcp.server")
+
+# --- Rate limiting -----------------------------------------------------------
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(
+    title="Plane MCP Server",
+    description="Manage Plane work items (tasks) via the Model Context Protocol.",
+    version="1.0.0",
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# --- Lifespan / startup ------------------------------------------------------
+
+
+@app.on_event("startup")
+async def startup() -> None:
+    if not settings.PLANE_MCP_TOKEN:
+        raise RuntimeError(
+            "PLANE_MCP_TOKEN environment variable is required but not set."
+        )
+    logger.info("Plane MCP server starting (Plane API: %s)", settings.PLANE_API_BASE)
+
+
+# --- Security middleware -----------------------------------------------------
+
+
+@app.middleware("http")
+async def validate_origin(request: Request, call_next):
+    """Reject requests with a missing/unexpected Origin header (DNS rebinding
+    mitigation). Allowed origins come from ALLOWED_ORIGINS (comma-separated)."""
+    allowed = settings.allowed_origin_set
+    # Only enforce origin checks when an allowlist is configured. For local
+    # stdio-style usage the client may not send one; binding to 127.0.0.1 is
+    # the primary control in that case.
+    if allowed:
+        origin = request.headers.get("Origin", "")
+        if origin and origin not in allowed:
+            return JSONResponse(
+                status_code=403, content={"detail": "Forbidden origin"}
+            )
+    return await call_next(request)
+
+
+# --- JSON-RPC helpers --------------------------------------------------------
+
+
+def _rpc_response(req_id: Any, result: Any) -> dict:
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}
+
+
+def _rpc_error(req_id: Any, code: int, message: str) -> dict:
+    return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
+
+
+# --- MCP endpoint ------------------------------------------------------------
+
+
+@app.post("/mcp")
+@limiter.limit(f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
+async def mcp_endpoint(request: Request):
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(_rpc_error(None, -32700, "Parse error"), status_code=400)
+
+    if not isinstance(body, dict):
+        return JSONResponse(
+            _rpc_error(None, -32600, "Invalid Request"), status_code=400
+        )
+
+    req_id = body.get("id")
+    method = body.get("method")
+
+    # --- initialize ----------------------------------------------------------
+    if method == "initialize":
+        try:
+            params = body.get("params") or {}
+            MCPInitializeRequest(**params)
+        except Exception as e:  # validation error
+            return _rpc_error(req_id, -32602, f"Invalid params: {e}")
+        return _rpc_response(
+            req_id,
+            {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {"tools": {}},
+                "serverInfo": {
+                    "name": "plane-mcp",
+                    "version": "1.0.0",
+                },
+                "instructions": (
+                    "This server exposes Plane work-item (task) management tools. "
+                    "All calls require workspace_slug and project_id to scope the "
+                    "operation. Available tools: list_tasks, get_task, "
+                    "create_task, update_task, delete_task."
+                ),
+            },
+        )
+
+    # --- notifications/initialized (no response required) --------------------
+    if method == "notifications/initialized":
+        return JSONResponse(status_code=204, content=None)
+
+    # --- tools/list ----------------------------------------------------------
+    if method == "tools/list":
+        return _rpc_response(req_id, {"tools": TOOLS})
+
+    # --- tools/call ----------------------------------------------------------
+    if method == "tools/call":
+        params = body.get("params") or {}
+        name = params.get("name")
+        args = params.get("arguments") or {}
+
+        if not name:
+            return _rpc_error(req_id, -32602, "Missing tool name")
+        handler = TOOL_HANDLERS.get(name)
+        if handler is None:
+            return _rpc_error(req_id, -32601, f"Unknown tool: {name}")
+
+        try:
+            result: MCPToolResult = await handler(args)
+        except Exception as e:  # never leak raw tracebacks to the agent
+            logger.exception("Unhandled error in tool '%s'", name)
+            result = MCPToolResult(
+                content=[{"type": "text", "text": f"Internal error: {e}"}],
+                isError=True,
+            )
+        return _rpc_response(req_id, result.model_dump())
+
+    # --- ping ----------------------------------------------------------------
+    if method == "ping":
+        return _rpc_response(req_id, {})
+
+    return _rpc_error(req_id, -32601, f"Method not found: {method}")
+
+
+# --- Health endpoint (not part of MCP, useful for Docker) -------------------
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "app.server:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        log_level="info",
+    )

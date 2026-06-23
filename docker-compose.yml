@@ -1,0 +1,33 @@
+services:
+  plane-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: plane-mcp:1.0.0
+    container_name: plane-mcp
+    restart: unless-stopped
+    ports:
+      # Bind only on localhost. To expose externally, put this behind a reverse
+      # proxy with TLS + auth rather than binding 0.0.0.0 directly.
+      - "127.0.0.1:8763:8763"
+    environment:
+      # Pass the Plane token from the host environment (never baked into image).
+      PLANE_MCP_TOKEN: ${PLANE_MCP_TOKEN:?PLANE_MCP_TOKEN must be set}
+      PLANE_API_BASE: ${PLANE_API_BASE:-http://umbrel:8762}
+      HOST: 0.0.0.0
+      PORT: "8763"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-15}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8763/health').read(); sys.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - plane-net
+
+networks:
+  plane-net:
+    driver: bridge
