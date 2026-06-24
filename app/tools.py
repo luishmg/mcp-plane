@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable, Awaitable
+import re
+from typing import Any, Awaitable, Callable, Optional
 
 from .models import (
     MCPContent,
@@ -44,6 +45,7 @@ from .plane_client import (
     get_workspace_invite as plane_get_workspace_invite,
     list_projects as plane_list_projects,
     list_project_members as plane_list_project_members,
+    list_states as plane_list_states,
     list_tasks as plane_list_tasks,
     list_workspace_invites as plane_list_workspace_invites,
     list_workspace_members as plane_list_workspace_members,
@@ -93,6 +95,37 @@ def _workspace_arg(args: dict) -> str:
     if not workspace:
         raise ValueError("'workspace_slug' is required to scope Plane operations.")
     return workspace
+
+
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+async def _resolve_state_id(
+    workspace_slug: str, project_id: str, state: Optional[str]
+) -> Optional[str]:
+    """Translate a state name to a Plane state UUID.
+
+    Accepts UUIDs as-is. Raises ValueError if the name cannot be matched.
+    """
+    if not state:
+        return None
+    if _UUID_RE.match(state):
+        return state
+
+    try:
+        states = await plane_list_states(workspace_slug, project_id, per_page=100)
+    except PlaneAPIError as e:
+        raise ValueError(f"Could not fetch project states: {e}") from e
+
+    needle = state.strip().lower()
+    for entry in states:
+        name = entry.get("name", "")
+        if name == state or name.strip().lower() == needle:
+            return entry.get("id")
+
+    raise ValueError(f"State '{state}' was not found in project {project_id}.")
 
 
 # ---------------------------------------------------------------------------
@@ -530,12 +563,12 @@ TOOLS: list[dict] = [
                 },
                 "state": {
                     "type": "string",
-                    "description": "Workflow state name (e.g. 'Backlog')",
+                    "description": "Workflow state name (e.g. 'Backlog') or state UUID",
                 },
                 "target_date": {
                     "type": "string",
-                    "format": "date-time",
-                    "description": "Due date in ISO 8601 format",
+                    "format": "date",
+                    "description": "Due date in YYYY-MM-DD format",
                 },
             },
             "required": ["workspace_slug", "project_id", "name"],
@@ -565,12 +598,12 @@ TOOLS: list[dict] = [
                 },
                 "state": {
                     "type": "string",
-                    "description": "New workflow state name",
+                    "description": "New workflow state name or state UUID",
                 },
                 "target_date": {
                     "type": "string",
-                    "format": "date-time",
-                    "description": "New due date in ISO 8601 format",
+                    "format": "date",
+                    "description": "New due date in YYYY-MM-DD format",
                 },
             },
             "required": ["workspace_slug", "project_id", "task_id"],
@@ -1011,15 +1044,21 @@ async def handle_create_task(args: dict) -> MCPToolResult:
             name=args["name"],
             description_html=args.get("description_html"),
             priority=args.get("priority", "MEDIUM"),
-            state=args.get("state"),
             target_date=args.get("target_date"),
         )
     except (KeyError, ValueError, TypeError) as e:
         return _text(f"Invalid task payload: {e}", error=True)
 
     try:
-        data = await plane_create_task(workspace, project, task.model_dump(exclude_none=True))
-    except PlaneAPIError as e:
+        payload = task.model_dump(mode="json", exclude_none=True)
+        # Translate a state name to the UUID the Plane API expects.
+        state_id = await _resolve_state_id(workspace, project, args.get("state"))
+        if state_id:
+            payload["state"] = state_id
+        elif "state" in payload:
+            del payload["state"]
+        data = await plane_create_task(workspace, project, payload)
+    except (KeyError, ValueError, TypeError, PlaneAPIError) as e:
         return _text(f"Failed to create task: {e}", error=True)
     return _json_result(data)
 
@@ -1049,10 +1088,15 @@ async def handle_update_task(args: dict) -> MCPToolResult:
         return _text(f"Invalid update payload: {e}", error=True)
 
     try:
-        data = await plane_update_task(
-            workspace, project, task_id, validated.model_dump(exclude_none=True)
-        )
-    except PlaneAPIError as e:
+        payload = validated.model_dump(mode="json", exclude_none=True)
+        if "state" in update_fields:
+            state_id = await _resolve_state_id(workspace, project, update_fields["state"])
+            if state_id:
+                payload["state"] = state_id
+            else:
+                payload.pop("state", None)
+        data = await plane_update_task(workspace, project, task_id, payload)
+    except (ValueError, TypeError, PlaneAPIError) as e:
         return _text(f"Failed to update task {task_id}: {e}", error=True)
     return _json_result(data)
 

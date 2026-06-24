@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -38,6 +38,8 @@ class MCPInitializeRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 PRIORITY_VALUES = ["LOW", "MEDIUM", "HIGH", "URGENT"]
+_PRIORITY_PATTERN = r"^(low|medium|high|urgent|none)$"
+
 STATUS_VALUES = ["BACKLOG", "TODO", "IN_PROGRESS", "DONE", "CANCELLED"]
 
 ROLE_VALUES = [5, 15, 20]
@@ -62,14 +64,21 @@ class PlaneTask(BaseModel):
         None, max_length=10000, description="Task description (HTML allowed by Plane)"
     )
     priority: Optional[str] = Field(
-        "MEDIUM", description="Priority level", pattern="^(LOW|MEDIUM|HIGH|URGENT)$"
+        "medium", description="Priority level", pattern=_PRIORITY_PATTERN
     )
     state: Optional[str] = Field(
-        None, description="Workflow state name (e.g. Backlog, In Progress)"
+        None, description="Workflow state name (e.g. Backlog) or state UUID"
     )
-    target_date: Optional[datetime] = Field(
-        None, description="Due date in ISO 8601 format"
+    target_date: Optional[date] = Field(
+        None, description="Due date in YYYY-MM-DD format"
     )
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def _normalize_priority(cls, value):
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
 
 
 class PlaneTaskUpdate(BaseModel):
@@ -77,9 +86,16 @@ class PlaneTaskUpdate(BaseModel):
 
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description_html: Optional[str] = Field(None, max_length=10000)
-    priority: Optional[str] = Field(None, pattern="^(LOW|MEDIUM|HIGH|URGENT)$")
+    priority: Optional[str] = Field(None, pattern=_PRIORITY_PATTERN)
     state: Optional[str] = Field(None)
-    target_date: Optional[datetime] = Field(None)
+    target_date: Optional[date] = Field(None)
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def _normalize_priority(cls, value):
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
 
 
 class PlaneTaskResponse(BaseModel):
@@ -90,7 +106,7 @@ class PlaneTaskResponse(BaseModel):
     description_html: Optional[str] = None
     priority: Optional[str] = None
     state: Optional[str] = None
-    target_date: Optional[datetime] = None
+    target_date: Optional[date] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

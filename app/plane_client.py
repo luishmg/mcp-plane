@@ -270,6 +270,21 @@ async def update_project_member(
 # ---------------------------------------------------------------------------
 
 
+async def list_states(
+    workspace_slug: str,
+    project_id: str,
+    *,
+    per_page: int = 100,
+) -> list:
+    """List workflow states for a project so state names can be mapped to UUIDs."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/states/"
+    )
+    params: dict[str, Any] = {"per_page": per_page}
+    data = await _request("GET", endpoint, params=params)
+    return data.get("results", [])
+
+
 async def list_tasks(
     workspace_slug: str,
     project_id: str,
