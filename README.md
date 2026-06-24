@@ -8,6 +8,7 @@
 [![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white&style=flat-square)](https://www.python.org/)
 [![Plane](https://img.shields.io/badge/Plane-v1.3.1-1c4ebc?style=flat-square)](https://plane.so/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white&style=flat-square)](./docker-compose.yml)
+[![Version](https://img.shields.io/badge/Version-1.1.0-blue?style=flat-square)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](./LICENSE)
 
 </div>
@@ -49,9 +50,13 @@
 
 **Single-endpoint MCP over HTTP.** Implements JSON-RPC 2.0 on `/mcp`, including the full MCP lifecycle: `initialize`, `tools/list`, `tools/call`, and `ping`.
 
+### Plane workspace & project management
+
+**Manage workspaces and projects.** Agents can call workspace tools (`list_workspaces`, `get_workspace`, `create_workspace`, `update_workspace`), project tools (`list_projects`, `get_project`, `create_project`, `update_project`, `archive_project`, `unarchive_project`), workspace members/invites, and project members.
+
 ### Plane task management
 
-**CRUD operations exposed as MCP tools.** Agents can call `list_tasks`, `get_task`, `create_task`, `update_task`, and `delete_task`, scoped to a Plane workspace and project.
+**Task lifecycle operations exposed as MCP tools.** Agents can call `list_tasks`, `get_task`, `create_task`, and `update_task`, scoped to a Plane workspace and project. Delete operations are intentionally omitted.
 
 ### Validated and secured inputs
 
@@ -139,7 +144,7 @@ python -m app
 }'
 ```
 
-All task tools require `workspace_slug` and `project_id` to scope the operation to the right Plane project.
+Workspace tools require `workspace_slug`. Project and task tools also require `project_id`. Member tools require the UUID of the workspace/project membership record.
 
 ---
 
@@ -148,6 +153,7 @@ All task tools require `workspace_slug` and `project_id` to scope the operation 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `PLANE_MCP_TOKEN` | ✅ | — | Plane API token (sent as `X-API-Key`) |
+| `MCP_AUTH_TOKEN` | ❌ | _(empty)_ | When set, MCP clients must send `Authorization: Bearer <token>` on `/mcp`. Leave empty to disable client auth. |
 | `PLANE_API_BASE` | ❌ | `http://umbrel:8762` | Base URL of your Plane instance |
 | `HOST` | ❌ | `0.0.0.0` | Bind address |
 | `PORT` | ❌ | `8763` | Listen port |
@@ -160,6 +166,7 @@ All task tools require `workspace_slug` and `project_id` to scope the operation 
 ## 🔒 Security
 
 - The Plane API token is read from the environment and **never** accepted from MCP clients (no token passthrough).
+- Optional **client authentication**: set `MCP_AUTH_TOKEN` to require MCP clients to present `Authorization: Bearer <MCP_AUTH_TOKEN>` on every `/mcp` request. Unauthenticated or mismatched requests are rejected with `401`. The comparison is constant-time. Leave unset to disable (only safe on trusted networks).
 - The server defaults to listening on all interfaces (`0.0.0.0`) inside the container; expose it externally only behind a TLS-terminating reverse proxy with authentication.
 - All tool inputs are validated with Pydantic schemas and outputs are JSON-serialized before returning.
 

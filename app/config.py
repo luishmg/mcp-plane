@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     # --- Required secrets ---
     PLANE_MCP_TOKEN: str
 
+    # --- MCP client authentication (optional but recommended) ---
+    # When set, MCP clients must send `Authorization: Bearer <MCP_AUTH_TOKEN>`
+    # on every request to /mcp. Leave unset to disable client auth (only safe
+    # when the server is reachable from trusted networks).
+    MCP_AUTH_TOKEN: str | None = None
+
     # --- Plane API ---
     PLANE_API_BASE: str = "http://umbrel:8762"
 

@@ -63,14 +63,210 @@ async def _request(
                 f"Plane API {resp.status_code} for {method} {endpoint}: {body}"
             )
 
-        # Some endpoints (DELETE) may return empty body.
+        # Some endpoints (DELETE/unarchive, DELETE workspace) may return empty body.
         if not resp.content:
             return {}
         return resp.json()
 
 
 # ---------------------------------------------------------------------------
-# Work-item (task) CRUD
+# Generic pagination helpers
+# ---------------------------------------------------------------------------
+
+
+def _paginated_params(cursor: Optional[str] = None, per_page: int = 20) -> dict[str, Any]:
+    params: dict[str, Any] = {"per_page": per_page}
+    if cursor:
+        params["cursor"] = cursor
+    return params
+
+
+# ---------------------------------------------------------------------------
+# Workspaces
+# ---------------------------------------------------------------------------
+
+
+async def list_workspaces(
+    *,
+    cursor: Optional[str] = None,
+    per_page: int = 20,
+) -> dict:
+    """List workspaces visible to the API token owner."""
+    return await _request(
+        "GET", "/api/v1/workspaces/", params=_paginated_params(cursor, per_page)
+    )
+
+
+async def get_workspace(workspace_slug: str) -> dict:
+    """Retrieve a workspace by slug."""
+    return await _request("GET", f"/api/v1/workspaces/{workspace_slug}/")
+
+
+async def create_workspace(payload: dict) -> dict:
+    """Create a new workspace."""
+    return await _request("POST", "/api/v1/workspaces/", json_body=payload)
+
+
+async def update_workspace(workspace_slug: str, payload: dict) -> dict:
+    """Partially update a workspace."""
+    return await _request(
+        "PATCH", f"/api/v1/workspaces/{workspace_slug}/", json_body=payload
+    )
+
+
+# ---------------------------------------------------------------------------
+# Projects
+# ---------------------------------------------------------------------------
+
+
+async def list_projects(
+    workspace_slug: str,
+    *,
+    cursor: Optional[str] = None,
+    per_page: int = 20,
+) -> dict:
+    """List projects in a workspace."""
+    endpoint = f"/api/v1/workspaces/{workspace_slug}/projects/"
+    return await _request("GET", endpoint, params=_paginated_params(cursor, per_page))
+
+
+async def get_project(workspace_slug: str, project_id: str) -> dict:
+    """Retrieve a project by ID."""
+    endpoint = f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/"
+    return await _request("GET", endpoint)
+
+
+async def create_project(workspace_slug: str, payload: dict) -> dict:
+    """Create a new project."""
+    endpoint = f"/api/v1/workspaces/{workspace_slug}/projects/"
+    return await _request("POST", endpoint, json_body=payload)
+
+
+async def update_project(
+    workspace_slug: str, project_id: str, payload: dict
+) -> dict:
+    """Partially update a project."""
+    endpoint = f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/"
+    return await _request("PATCH", endpoint, json_body=payload)
+
+
+async def archive_project(workspace_slug: str, project_id: str) -> dict:
+    """Archive a project."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/archive/"
+    )
+    return await _request("POST", endpoint)
+
+
+async def unarchive_project(workspace_slug: str, project_id: str) -> dict:
+    """Unarchive a project."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/archive/"
+    )
+    return await _request("DELETE", endpoint)
+
+
+# ---------------------------------------------------------------------------
+# Workspace members & invites
+# ---------------------------------------------------------------------------
+
+
+async def list_workspace_members(workspace_slug: str) -> list:
+    """List members of a workspace."""
+    return await _request("GET", f"/api/v1/workspaces/{workspace_slug}/members/")
+
+
+async def update_workspace_member(
+    workspace_slug: str, member_id: str, payload: dict
+) -> dict:
+    """Update a workspace member's role."""
+    endpoint = f"/api/v1/workspaces/{workspace_slug}/members/{member_id}/"
+    return await _request("PATCH", endpoint, json_body=payload)
+
+
+async def list_workspace_invites(workspace_slug: str) -> list:
+    """List pending workspace invitations."""
+    return await _request(
+        "GET", f"/api/v1/workspaces/{workspace_slug}/invitations/"
+    )
+
+
+async def create_workspace_invite(workspace_slug: str, payload: dict) -> dict:
+    """Invite an email address to a workspace."""
+    return await _request(
+        "POST", f"/api/v1/workspaces/{workspace_slug}/invitations/", json_body=payload
+    )
+
+
+async def get_workspace_invite(workspace_slug: str, invite_id: str) -> dict:
+    """Retrieve a workspace invitation."""
+    return await _request(
+        "GET", f"/api/v1/workspaces/{workspace_slug}/invitations/{invite_id}/"
+    )
+
+
+async def update_workspace_invite(
+    workspace_slug: str, invite_id: str, payload: dict
+) -> dict:
+    """Update a pending workspace invitation (e.g. change role)."""
+    endpoint = f"/api/v1/workspaces/{workspace_slug}/invitations/{invite_id}/"
+    return await _request("PATCH", endpoint, json_body=payload)
+
+
+# ---------------------------------------------------------------------------
+# Project members
+# ---------------------------------------------------------------------------
+
+
+def _project_members_endpoint(
+    workspace_slug: str, project_id: str, member_id: Optional[str] = None
+) -> str:
+    endpoint = f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/members/"
+    if member_id:
+        endpoint += f"{member_id}/"
+    return endpoint
+
+
+async def list_project_members(workspace_slug: str, project_id: str) -> list:
+    """List members of a project."""
+    return await _request(
+        "GET", _project_members_endpoint(workspace_slug, project_id)
+    )
+
+
+async def create_project_member(
+    workspace_slug: str, project_id: str, payload: dict
+) -> dict:
+    """Add a workspace member to a project."""
+    return await _request(
+        "POST",
+        _project_members_endpoint(workspace_slug, project_id),
+        json_body=payload,
+    )
+
+
+async def get_project_member(
+    workspace_slug: str, project_id: str, member_id: str
+) -> dict:
+    """Retrieve a project member record."""
+    return await _request(
+        "GET", _project_members_endpoint(workspace_slug, project_id, member_id)
+    )
+
+
+async def update_project_member(
+    workspace_slug: str, project_id: str, member_id: str, payload: dict
+) -> dict:
+    """Update a project member's role."""
+    return await _request(
+        "PATCH",
+        _project_members_endpoint(workspace_slug, project_id, member_id),
+        json_body=payload,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Work-items (tasks)
 # ---------------------------------------------------------------------------
 
 
@@ -126,15 +322,3 @@ async def update_task(
         f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/work-items/{task_id}/"
     )
     return await _request("PATCH", endpoint, json_body=payload)
-
-
-async def delete_task(
-    workspace_slug: str,
-    project_id: str,
-    task_id: str,
-) -> dict:
-    """Delete a work item."""
-    endpoint = (
-        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/work-items/{task_id}/"
-    )
-    return await _request("DELETE", endpoint)

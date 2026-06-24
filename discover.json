@@ -1,194 +1,725 @@
 {
-  "tools": [
-    {
-      "name": "list_tasks",
-      "description": "List work items (tasks) in a Plane project. Returns paginated, cursor-based results.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "workspace_slug": {
-            "type": "string",
-            "description": "Slug of the Plane workspace the project belongs to"
-          },
-          "project_id": {
-            "type": "string",
-            "description": "UUID of the Plane project"
-          },
-          "cursor": {
-            "type": "string",
-            "description": "Pagination cursor returned by a previous call"
-          },
-          "per_page": {
-            "type": "integer",
-            "description": "Page size (max 100)",
-            "default": 20,
-            "minimum": 1,
-            "maximum": 100
-          }
-        },
-        "required": [
-          "workspace_slug",
-          "project_id"
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": {
+        "tools": [
+            {
+                "name": "list_workspaces",
+                "description": "List Plane workspaces accessible to the API token.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "cursor": {
+                            "type": "string",
+                            "description": "Pagination cursor returned by a previous call"
+                        },
+                        "per_page": {
+                            "type": "integer",
+                            "description": "Page size (max 100)",
+                            "default": 20,
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "get_workspace",
+                "description": "Retrieve a Plane workspace by its slug.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "create_workspace",
+                "description": "Create a new Plane workspace. Both name and slug are required.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Workspace display name (1-80 characters)"
+                        },
+                        "slug": {
+                            "type": "string",
+                            "description": "URL-safe slug: letters, numbers, hyphens, underscores (1-48 characters)"
+                        },
+                        "organization_size": {
+                            "type": "string",
+                            "description": "Organization size label, e.g. '1-10'"
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "Timezone for the workspace, e.g. 'UTC'"
+                        }
+                    },
+                    "required": [
+                        "name",
+                        "slug"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "update_workspace",
+                "description": "Partially update a Plane workspace by slug.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "New workspace name (1-80 characters)"
+                        },
+                        "slug": {
+                            "type": "string",
+                            "description": "New workspace slug (1-48 characters)"
+                        },
+                        "organization_size": {
+                            "type": "string",
+                            "description": "Organization size label"
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "Timezone for the workspace"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "list_projects",
+                "description": "List projects in a Plane workspace. Returns paginated, cursor-based results.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "cursor": {
+                            "type": "string",
+                            "description": "Pagination cursor returned by a previous call"
+                        },
+                        "per_page": {
+                            "type": "integer",
+                            "description": "Page size (max 100)",
+                            "default": 20,
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    "required": [
+                        "workspace_slug"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "get_project",
+                "description": "Retrieve a single Plane project by its ID.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "create_project",
+                "description": "Create a new Plane project in a workspace. Both name and identifier are required.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "Project name"
+                        },
+                        "identifier": {
+                            "type": "string",
+                            "description": "Short uppercase identifier, e.g. 'PROJ' (Plane upper-cases it server-side)"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Project description text"
+                        },
+                        "project_lead": {
+                            "type": "string",
+                            "description": "User ID of the project lead (must be a workspace member)"
+                        },
+                        "default_assignee": {
+                            "type": "string",
+                            "description": "User ID of the default assignee"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "name",
+                        "identifier"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "update_project",
+                "description": "Partially update an existing Plane project.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "New project name"
+                        },
+                        "identifier": {
+                            "type": "string",
+                            "description": "New project identifier"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "New description"
+                        },
+                        "project_lead": {
+                            "type": "string",
+                            "description": "New project lead user ID"
+                        },
+                        "default_assignee": {
+                            "type": "string",
+                            "description": "New default assignee user ID"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "archive_project",
+                "description": "Archive a Plane project. Requires sufficient permissions.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "unarchive_project",
+                "description": "Unarchive a Plane project. Requires sufficient permissions.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "list_workspace_members",
+                "description": "List members of a Plane workspace.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "update_workspace_member",
+                "description": "Update a workspace member's role.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "member_id": {
+                            "type": "string",
+                            "description": "UUID of the workspace membership record"
+                        },
+                        "role": {
+                            "type": "integer",
+                            "enum": [
+                                5,
+                                15,
+                                20
+                            ],
+                            "description": "Role: 5=Guest, 15=Member, 20=Admin"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "member_id",
+                        "role"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "list_workspace_invites",
+                "description": "List pending invitations for a Plane workspace.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "create_workspace_invite",
+                "description": "Invite an email address to a Plane workspace.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "email": {
+                            "type": "string",
+                            "format": "email",
+                            "description": "Email address to invite"
+                        },
+                        "role": {
+                            "type": "integer",
+                            "enum": [
+                                5,
+                                15,
+                                20
+                            ],
+                            "description": "Role: 5=Guest, 15=Member, 20=Admin"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "email",
+                        "role"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "get_workspace_invite",
+                "description": "Retrieve a pending workspace invitation.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "invite_id": {
+                            "type": "string",
+                            "description": "UUID of the workspace invitation"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "invite_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "update_workspace_invite",
+                "description": "Update a pending workspace invitation, e.g. change its role.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "invite_id": {
+                            "type": "string",
+                            "description": "UUID of the workspace invitation"
+                        },
+                        "role": {
+                            "type": "integer",
+                            "enum": [
+                                5,
+                                15,
+                                20
+                            ],
+                            "description": "Role: 5=Guest, 15=Member, 20=Admin"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "invite_id",
+                        "role"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "list_project_members",
+                "description": "List members of a Plane project.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "create_project_member",
+                "description": "Add a workspace member to a Plane project.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        },
+                        "member": {
+                            "type": "string",
+                            "description": "User ID of the workspace member to add"
+                        },
+                        "role": {
+                            "type": "integer",
+                            "enum": [
+                                5,
+                                15,
+                                20
+                            ],
+                            "description": "Role: 5=Guest, 15=Member, 20=Admin"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id",
+                        "member",
+                        "role"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "get_project_member",
+                "description": "Retrieve a project member record.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        },
+                        "member_id": {
+                            "type": "string",
+                            "description": "UUID of the project membership record"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id",
+                        "member_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "update_project_member",
+                "description": "Update a project member's role.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        },
+                        "member_id": {
+                            "type": "string",
+                            "description": "UUID of the project membership record"
+                        },
+                        "role": {
+                            "type": "integer",
+                            "enum": [
+                                5,
+                                15,
+                                20
+                            ],
+                            "description": "Role: 5=Guest, 15=Member, 20=Admin"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id",
+                        "member_id",
+                        "role"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "list_tasks",
+                "description": "List work items (tasks) in a Plane project. Returns paginated, cursor-based results.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        },
+                        "cursor": {
+                            "type": "string",
+                            "description": "Pagination cursor returned by a previous call"
+                        },
+                        "per_page": {
+                            "type": "integer",
+                            "description": "Page size (max 100)",
+                            "default": 20,
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "get_task",
+                "description": "Retrieve a single Plane work item by its ID.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "UUID of the work item"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id",
+                        "task_id"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "create_task",
+                "description": "Create a new work item (task) in a Plane project.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "Task title"
+                        },
+                        "description_html": {
+                            "type": "string",
+                            "description": "Task description (Plane accepts HTML)"
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": [
+                                "LOW",
+                                "MEDIUM",
+                                "HIGH",
+                                "URGENT"
+                            ],
+                            "description": "Priority of the task",
+                            "default": "MEDIUM"
+                        },
+                        "state": {
+                            "type": "string",
+                            "description": "Workflow state name (e.g. 'Backlog')"
+                        },
+                        "target_date": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Due date in ISO 8601 format"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id",
+                        "name"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "update_task",
+                "description": "Partially update an existing Plane work item.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workspace_slug": {
+                            "type": "string",
+                            "description": "Slug of the Plane workspace"
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "UUID of the Plane project"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "UUID of the work item to update"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "New title"
+                        },
+                        "description_html": {
+                            "type": "string",
+                            "description": "New description (HTML)"
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": [
+                                "LOW",
+                                "MEDIUM",
+                                "HIGH",
+                                "URGENT"
+                            ],
+                            "description": "New priority"
+                        },
+                        "state": {
+                            "type": "string",
+                            "description": "New workflow state name"
+                        },
+                        "target_date": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "New due date in ISO 8601 format"
+                        }
+                    },
+                    "required": [
+                        "workspace_slug",
+                        "project_id",
+                        "task_id"
+                    ],
+                    "additionalProperties": false
+                }
+            }
         ]
-      }
-    },
-    {
-      "name": "get_task",
-      "description": "Retrieve a single Plane work item by its ID.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "workspace_slug": {
-            "type": "string",
-            "description": "Slug of the Plane workspace the project belongs to"
-          },
-          "project_id": {
-            "type": "string",
-            "description": "UUID of the Plane project"
-          },
-          "task_id": {
-            "type": "string",
-            "description": "UUID of the work item"
-          }
-        },
-        "required": [
-          "workspace_slug",
-          "project_id",
-          "task_id"
-        ]
-      }
-    },
-    {
-      "name": "create_task",
-      "description": "Create a new work item (task) in a Plane project.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "workspace_slug": {
-            "type": "string",
-            "description": "Slug of the Plane workspace the project belongs to"
-          },
-          "project_id": {
-            "type": "string",
-            "description": "UUID of the Plane project"
-          },
-          "name": {
-            "type": "string",
-            "description": "Task title"
-          },
-          "description_html": {
-            "type": "string",
-            "description": "Task description (Plane accepts HTML)"
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "LOW",
-              "MEDIUM",
-              "HIGH",
-              "URGENT"
-            ],
-            "description": "Priority of the task",
-            "default": "MEDIUM"
-          },
-          "state": {
-            "type": "string",
-            "description": "Workflow state name (e.g. 'Backlog')"
-          },
-          "target_date": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Due date in ISO 8601 format"
-          }
-        },
-        "required": [
-          "workspace_slug",
-          "project_id",
-          "name"
-        ]
-      }
-    },
-    {
-      "name": "update_task",
-      "description": "Partially update an existing Plane work item.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "workspace_slug": {
-            "type": "string",
-            "description": "Slug of the Plane workspace the project belongs to"
-          },
-          "project_id": {
-            "type": "string",
-            "description": "UUID of the Plane project"
-          },
-          "task_id": {
-            "type": "string",
-            "description": "UUID of the work item to update"
-          },
-          "name": {
-            "type": "string",
-            "description": "New title"
-          },
-          "description_html": {
-            "type": "string",
-            "description": "New description (HTML)"
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "LOW",
-              "MEDIUM",
-              "HIGH",
-              "URGENT"
-            ],
-            "description": "New priority"
-          },
-          "state": {
-            "type": "string",
-            "description": "New workflow state name"
-          },
-          "target_date": {
-            "type": "string",
-            "format": "date-time",
-            "description": "New due date in ISO 8601 format"
-          }
-        },
-        "required": [
-          "workspace_slug",
-          "project_id",
-          "task_id"
-        ]
-      }
-    },
-    {
-      "name": "delete_task",
-      "description": "Delete a Plane work item by ID.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "workspace_slug": {
-            "type": "string",
-            "description": "Slug of the Plane workspace the project belongs to"
-          },
-          "project_id": {
-            "type": "string",
-            "description": "UUID of the Plane project"
-          },
-          "task_id": {
-            "type": "string",
-            "description": "UUID of the work item to delete"
-          }
-        },
-        "required": [
-          "workspace_slug",
-          "project_id",
-          "task_id"
-        ]
-      }
     }
-  ],
-  "resources_error": "resources/list failed: [-32601] Method not found: resources/list",
-  "resource_templates_error": "resources/templates/list failed: [-32601] Method not found: resources/templates/list",
-  "prompts_error": "prompts/list failed: [-32601] Method not found: prompts/list"
 }

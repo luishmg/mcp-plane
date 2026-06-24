@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: plane-mcp:1.0.0
+    image: plane-mcp:1.1.0
     container_name: plane-mcp
     restart: unless-stopped
     ports:
@@ -13,6 +13,8 @@ services:
     environment:
       # Pass the Plane token from the host environment (never baked into image).
       PLANE_MCP_TOKEN: ${PLANE_MCP_TOKEN:?PLANE_MCP_TOKEN must be set}
+      # Optional: token MCP clients must present (Authorization: Bearer <token>).
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
       PLANE_API_BASE: ${PLANE_API_BASE:-http://umbrel:8762}
       HOST: 0.0.0.0
       PORT: "8763"

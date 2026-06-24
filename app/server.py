@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import secrets
+import hmac
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -26,6 +27,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from . import __version__
 from .config import settings
 from .models import MCPInitializeRequest
 from .tools import TOOLS, TOOL_HANDLERS, MCPToolResult
@@ -54,16 +56,24 @@ async def startup() -> None:
         raise RuntimeError(
             "PLANE_MCP_TOKEN environment variable is required but not set."
         )
-    logger.info("Plane MCP server starting (Plane API: %s)", settings.PLANE_API_BASE)
+    logger.info(
+        "Plane MCP server starting (Plane API: %s, client auth: %s)",
+        settings.PLANE_API_BASE,
+        "enabled" if settings.MCP_AUTH_TOKEN else "disabled",
+    )
 
 
 # --- Security middleware -----------------------------------------------------
 
 
 @app.middleware("http")
-async def validate_origin(request: Request, call_next):
+async def validate_origin_and_auth(request: Request, call_next):
     """Reject requests with a missing/unexpected Origin header (DNS rebinding
-    mitigation). Allowed origins come from ALLOWED_ORIGINS (comma-separated)."""
+    mitigation). Allowed origins come from ALLOWED_ORIGINS (comma-separated).
+
+    When MCP_AUTH_TOKEN is set, also require a matching Bearer token on the
+    Authorization header for the /mcp endpoint. The comparison uses
+    ``hmac.compare_digest`` to be constant-time."""
     allowed = settings.allowed_origin_set
     # Only enforce origin checks when an allowlist is configured. For local
     # stdio-style usage the client may not send one; binding to 127.0.0.1 is
@@ -74,6 +84,22 @@ async def validate_origin(request: Request, call_next):
             return JSONResponse(
                 status_code=403, content={"detail": "Forbidden origin"}
             )
+    # Client-facing auth for the MCP endpoint.
+    expected_token = settings.MCP_AUTH_TOKEN
+    if expected_token and request.url.path == "/mcp":
+        header = request.headers.get("Authorization", "")
+        scheme, _, provided = header.partition(" ")
+        if (
+            scheme.lower() != "bearer"
+            or not provided
+            or not hmac.compare_digest(provided, expected_token)
+        ):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     return await call_next(request)
 
 
@@ -121,13 +147,20 @@ async def mcp_endpoint(request: Request):
                 "capabilities": {"tools": {}},
                 "serverInfo": {
                     "name": "plane-mcp",
-                    "version": "1.0.0",
+                    "version": __version__,
                 },
                 "instructions": (
-                    "This server exposes Plane work-item (task) management tools. "
-                    "All calls require workspace_slug and project_id to scope the "
-                    "operation. Available tools: list_tasks, get_task, "
-                    "create_task, update_task, delete_task."
+                    "This server exposes Plane workspace, project, member, invite, "
+                    "and task management tools. Workspaces are scoped by "
+                    "workspace_slug; projects and tasks additionally require "
+                    "project_id. Members require the workspace/project membership "
+                    "record UUID. Available tools: list_workspaces, get_workspace, "
+                    "create_workspace, update_workspace, list_projects, get_project, "
+                    "create_project, update_project, archive_project, unarchive_project, "
+                    "list_workspace_members, update_workspace_member, list_workspace_invites, "
+                    "create_workspace_invite, get_workspace_invite, update_workspace_invite, "
+                    "list_project_members, create_project_member, get_project_member, "
+                    "update_project_member, list_tasks, get_task, create_task, update_task."
                 ),
             },
         )
