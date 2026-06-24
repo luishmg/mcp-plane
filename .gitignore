@@ -1,0 +1,20 @@
+# Default exclusions
+.DS_Store
+.env
+node_modules/
+__pycache__/
+.terraform/
+
+# Editor files
+*.swp
+*.swo
+*.kate-swp
+
+# Build artifacts
+/dist/
+/build/
+/out/
+
+# Log files
+*.log
+npm-debug.log*
