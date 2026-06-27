@@ -22,7 +22,7 @@ import hmac
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -167,7 +167,7 @@ async def mcp_endpoint(request: Request):
 
     # --- notifications/initialized (no response required) --------------------
     if method == "notifications/initialized":
-        return JSONResponse(status_code=204, content=None)
+        return Response(status_code=204)
 
     # --- tools/list ----------------------------------------------------------
     if method == "tools/list":

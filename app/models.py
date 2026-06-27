@@ -49,6 +49,7 @@ ROLE_ADMIN = 20
 
 _WORKSPACE_SLUG_PATTERN = r"^[a-zA-Z0-9_-]+$"
 _PROJECT_IDENTIFIER_PATTERN = r"^[A-Za-z0-9_-]+$"
+_EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 
 # ---------------------------------------------------------------------------
