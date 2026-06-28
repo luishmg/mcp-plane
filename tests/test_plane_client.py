@@ -103,19 +103,33 @@ async def test_request_uses_api_base_and_headers(mocker: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_list_workspaces_passes_pagination(mocker: Any) -> None:
-    mock_request = mocker.patch("app.plane_client._request", return_value={"results": []})
+async def test_list_workspaces_uses_users_me_endpoint(mocker: Any) -> None:
+    # Plane has no list-all-workspaces endpoint; we use users/me/workspaces.
+    mock_request = mocker.patch("app.plane_client._request", return_value=[])
     await plane_client.list_workspaces(cursor="abc", per_page=50)
     mock_request.assert_awaited_once_with(
-        "GET", "/api/v1/workspaces/", params={"per_page": 50, "cursor": "abc"}
+        "GET", "/api/v1/users/me/workspaces/", params={"per_page": 50, "cursor": "abc"}
     )
 
 
 @pytest.mark.asyncio
-async def test_get_workspace_builds_endpoint(mocker: Any) -> None:
-    mock_request = mocker.patch("app.plane_client._request", return_value={})
-    await plane_client.get_workspace("acme")
-    mock_request.assert_awaited_once_with("GET", "/api/v1/workspaces/acme/")
+async def test_get_workspace_filters_from_list(mocker: Any) -> None:
+    mock_request = mocker.patch(
+        "app.plane_client._request",
+        return_value=[{"slug": "other", "name": "Other"}, {"slug": "acme", "name": "Acme"}],
+    )
+    result = await plane_client.get_workspace("acme")
+    mock_request.assert_awaited_once_with(
+        "GET", "/api/v1/users/me/workspaces/", params={"per_page": 20}
+    )
+    assert result == {"slug": "acme", "name": "Acme"}
+
+
+@pytest.mark.asyncio
+async def test_get_workspace_not_found_raises(mocker: Any) -> None:
+    mocker.patch("app.plane_client._request", return_value=[{"slug": "other"}])
+    with pytest.raises(plane_client.PlaneAPIError):
+        await plane_client.get_workspace("acme")
 
 
 @pytest.mark.asyncio

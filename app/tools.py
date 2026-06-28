@@ -570,6 +570,10 @@ TOOLS: list[dict] = [
                     "format": "date",
                     "description": "Due date in YYYY-MM-DD format",
                 },
+                "parent": {
+                    "type": "string",
+                    "description": "UUID of the parent work item to nest this task under (sub-issue). Must be a work-item UUID.",
+                },
             },
             "required": ["workspace_slug", "project_id", "name"],
             "additionalProperties": False,
@@ -604,6 +608,10 @@ TOOLS: list[dict] = [
                     "type": "string",
                     "format": "date",
                     "description": "New due date in YYYY-MM-DD format",
+                },
+                "parent": {
+                    "type": "string",
+                    "description": "UUID of the parent work item to nest this task under (sub-issue). Must be a work-item UUID.",
                 },
             },
             "required": ["workspace_slug", "project_id", "task_id"],
@@ -1045,6 +1053,7 @@ async def handle_create_task(args: dict) -> MCPToolResult:
             description_html=args.get("description_html"),
             priority=args.get("priority", "MEDIUM"),
             target_date=args.get("target_date"),
+            parent=args.get("parent"),
         )
     except (KeyError, ValueError, TypeError) as e:
         return _text(f"Invalid task payload: {e}", error=True)
@@ -1076,7 +1085,7 @@ async def handle_update_task(args: dict) -> MCPToolResult:
     update_fields = {
         k: v
         for k, v in args.items()
-        if k in {"name", "description_html", "priority", "state", "target_date"}
+        if k in {"name", "description_html", "priority", "state", "target_date", "parent"}
         and v is not None
     }
     if not update_fields:

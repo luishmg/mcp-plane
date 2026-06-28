@@ -73,6 +73,10 @@ class PlaneTask(BaseModel):
     target_date: Optional[date] = Field(
         None, description="Due date in YYYY-MM-DD format"
     )
+    parent: Optional[str] = Field(
+        None,
+        description="UUID of the parent work item; nests this task as a sub-issue",
+    )
 
     @field_validator("priority", mode="before")
     @classmethod
@@ -90,6 +94,10 @@ class PlaneTaskUpdate(BaseModel):
     priority: Optional[str] = Field(None, pattern=_PRIORITY_PATTERN)
     state: Optional[str] = Field(None)
     target_date: Optional[date] = Field(None)
+    parent: Optional[str] = Field(
+        None,
+        description="UUID of the parent work item; nests this task as a sub-issue",
+    )
 
     @field_validator("priority", mode="before")
     @classmethod

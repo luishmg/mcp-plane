@@ -69,6 +69,22 @@ def test_task_rejects_invalid_date() -> None:
         PlaneTask(name="Task", target_date="not-a-date")
 
 
+def test_task_includes_parent_when_set() -> None:
+    task = PlaneTask(name="Sub", parent="parent-uuid")
+    assert task.parent == "parent-uuid"
+    assert task.model_dump(exclude_none=True)["parent"] == "parent-uuid"
+
+
+def test_task_omits_parent_when_unset() -> None:
+    task = PlaneTask(name="Task")
+    assert "parent" not in task.model_dump(exclude_none=True)
+
+
+def test_task_update_accepts_parent() -> None:
+    update = PlaneTaskUpdate(parent="parent-uuid")
+    assert update.model_dump(exclude_none=True) == {"parent": "parent-uuid"}
+
+
 def test_task_update_normalizes_priority() -> None:
     update = PlaneTaskUpdate(priority="LOW")
     assert update.priority == "low"

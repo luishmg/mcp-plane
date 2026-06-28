@@ -90,16 +90,34 @@ async def list_workspaces(
     *,
     cursor: Optional[str] = None,
     per_page: int = 20,
-) -> dict:
-    """List workspaces visible to the API token owner."""
+) -> Any:
+    """List workspaces the API token owner belongs to.
+
+    Plane's public API has NO list-all-workspaces endpoint (GET /api/v1/workspaces/
+    returns 404 — every other resource is scoped under a known {workspace_slug}).
+    We use the `users/me/workspaces` endpoint, which returns the caller's
+    workspaces as a plain array and ignores pagination params. Do not "fix" this
+    back to /api/v1/workspaces/ — that path 404s.
+    """
     return await _request(
-        "GET", "/api/v1/workspaces/", params=_paginated_params(cursor, per_page)
+        "GET", "/api/v1/users/me/workspaces/", params=_paginated_params(cursor, per_page)
     )
 
 
 async def get_workspace(workspace_slug: str) -> dict:
-    """Retrieve a workspace by slug."""
-    return await _request("GET", f"/api/v1/workspaces/{workspace_slug}/")
+    """Retrieve a single workspace by slug.
+
+    There is no per-workspace GET on the API-key surface, so we list the
+    caller's workspaces (see ``list_workspaces``) and return the slug match.
+    """
+    data = await list_workspaces()
+    items = data if isinstance(data, list) else (data.get("results") or data.get("workspaces") or [])
+    for workspace in items:
+        if isinstance(workspace, dict) and workspace.get("slug") == workspace_slug:
+            return workspace
+    raise PlaneAPIError(
+        f"Workspace '{workspace_slug}' not found among accessible workspaces"
+    )
 
 
 async def create_workspace(payload: dict) -> dict:

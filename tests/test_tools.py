@@ -190,6 +190,45 @@ async def test_handle_create_task_resolves_state_name(mocker: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_handle_create_task_threads_parent(mocker: Any) -> None:
+    mocker.patch("app.tools._resolve_state_id", return_value=None)
+    mock_create = mocker.patch(
+        "app.tools.plane_create_task",
+        return_value={"id": "task-2", "name": "Sub"},
+    )
+    result = await handle_create_task(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "name": "Sub",
+            "parent": "parent-uuid",
+        }
+    )
+    assert result.isError is False
+    payload = mock_create.call_args[0][2]
+    assert payload["parent"] == "parent-uuid"
+
+
+@pytest.mark.asyncio
+async def test_handle_update_task_threads_parent(mocker: Any) -> None:
+    mock_update = mocker.patch(
+        "app.tools.plane_update_task",
+        return_value={"id": "t1"},
+    )
+    result = await handle_update_task(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "task_id": "t1",
+            "parent": "parent-uuid",
+        }
+    )
+    assert result.isError is False
+    payload = mock_update.call_args[0][3]
+    assert payload["parent"] == "parent-uuid"
+
+
+@pytest.mark.asyncio
 async def test_handle_create_task_invalid_payload(mocker: Any) -> None:
     result = await handle_create_task(
         {"workspace_slug": "acme", "project_id": "p1", "name": ""}
