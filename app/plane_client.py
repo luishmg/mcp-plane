@@ -355,3 +355,171 @@ async def update_task(
         f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/work-items/{task_id}/"
     )
     return await _request("PATCH", endpoint, json_body=payload)
+
+
+# ---------------------------------------------------------------------------
+# Cycles (sprints)
+# ---------------------------------------------------------------------------
+
+
+async def list_cycles(
+    workspace_slug: str,
+    project_id: str,
+    *,
+    cursor: Optional[str] = None,
+    per_page: int = 20,
+) -> dict:
+    """List cycles in a project (paginated, cursor-based)."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/cycles/"
+    )
+    return await _request("GET", endpoint, params=_paginated_params(cursor, per_page))
+
+
+async def get_cycle(
+    workspace_slug: str,
+    project_id: str,
+    cycle_id: str,
+) -> dict:
+    """Retrieve a single cycle by ID."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/cycles/{cycle_id}/"
+    )
+    return await _request("GET", endpoint)
+
+
+async def create_cycle(
+    workspace_slug: str,
+    project_id: str,
+    payload: dict,
+) -> dict:
+    """Create a new cycle."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/cycles/"
+    )
+    return await _request("POST", endpoint, json_body=payload)
+
+
+async def update_cycle(
+    workspace_slug: str,
+    project_id: str,
+    cycle_id: str,
+    payload: dict,
+) -> dict:
+    """Update (partial) an existing cycle."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/cycles/{cycle_id}/"
+    )
+    return await _request("PATCH", endpoint, json_body=payload)
+
+
+async def list_cycle_issues(
+    workspace_slug: str,
+    project_id: str,
+    cycle_id: str,
+    *,
+    cursor: Optional[str] = None,
+    per_page: int = 20,
+) -> dict:
+    """List work items assigned to a cycle (paginated, cursor-based)."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/cycles/{cycle_id}/cycle-issues/"
+    )
+    return await _request("GET", endpoint, params=_paginated_params(cursor, per_page))
+
+
+async def add_cycle_issues(
+    workspace_slug: str,
+    project_id: str,
+    cycle_id: str,
+    payload: dict,
+) -> dict:
+    """Add existing work items to a cycle (bulk association)."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/cycles/{cycle_id}/cycle-issues/"
+    )
+    return await _request("POST", endpoint, json_body=payload)
+
+
+# ---------------------------------------------------------------------------
+# Modules (epics)
+# ---------------------------------------------------------------------------
+
+
+async def list_modules(
+    workspace_slug: str,
+    project_id: str,
+    *,
+    cursor: Optional[str] = None,
+    per_page: int = 20,
+) -> dict:
+    """List modules in a project (paginated, cursor-based)."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/modules/"
+    )
+    return await _request("GET", endpoint, params=_paginated_params(cursor, per_page))
+
+
+async def get_module(
+    workspace_slug: str,
+    project_id: str,
+    module_id: str,
+) -> dict:
+    """Retrieve a single module by ID."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/modules/{module_id}/"
+    )
+    return await _request("GET", endpoint)
+
+
+async def create_module(
+    workspace_slug: str,
+    project_id: str,
+    payload: dict,
+) -> dict:
+    """Create a new module."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/modules/"
+    )
+    return await _request("POST", endpoint, json_body=payload)
+
+
+async def update_module(
+    workspace_slug: str,
+    project_id: str,
+    module_id: str,
+    payload: dict,
+) -> dict:
+    """Update (partial) an existing module."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/modules/{module_id}/"
+    )
+    return await _request("PATCH", endpoint, json_body=payload)
+
+
+async def list_module_issues(
+    workspace_slug: str,
+    project_id: str,
+    module_id: str,
+    *,
+    cursor: Optional[str] = None,
+    per_page: int = 20,
+) -> dict:
+    """List work items associated with a module (paginated, cursor-based)."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/modules/{module_id}/module-issues/"
+    )
+    return await _request("GET", endpoint, params=_paginated_params(cursor, per_page))
+
+
+async def add_module_issues(
+    workspace_slug: str,
+    project_id: str,
+    module_id: str,
+    payload: dict,
+) -> dict:
+    """Associate existing work items with a module (bulk association)."""
+    endpoint = (
+        f"/api/v1/workspaces/{workspace_slug}/projects/{project_id}/modules/{module_id}/module-issues/"
+    )
+    return await _request("POST", endpoint, json_body=payload)

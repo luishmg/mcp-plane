@@ -310,3 +310,141 @@ async def test_task_crud(mocker: Any) -> None:
 
     list_kwargs = mock_request.call_args_list[0].kwargs
     assert list_kwargs["params"] == {"per_page": 10, "cursor": "c1"}
+
+
+# ---------------------------------------------------------------------------
+# Cycles (sprints)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cycle_crud_uses_correct_methods_and_urls(mocker: Any) -> None:
+    mock_request = mocker.patch("app.plane_client._request", return_value={"id": "c1"})
+
+    await plane_client.list_cycles("acme", "p1", cursor="cur", per_page=5)
+    await plane_client.get_cycle("acme", "p1", "c1")
+    await plane_client.create_cycle("acme", "p1", {"name": "Sprint 1"})
+    await plane_client.update_cycle("acme", "p1", "c1", {"name": "Sprint 2"})
+
+    calls = [c.args for c in mock_request.call_args_list]
+    assert calls[0] == ("GET", "/api/v1/workspaces/acme/projects/p1/cycles/")
+    assert calls[1] == ("GET", "/api/v1/workspaces/acme/projects/p1/cycles/c1/")
+    assert calls[2] == ("POST", "/api/v1/workspaces/acme/projects/p1/cycles/")
+    assert calls[3] == ("PATCH", "/api/v1/workspaces/acme/projects/p1/cycles/c1/")
+
+
+@pytest.mark.asyncio
+async def test_list_cycles_passes_pagination_params(mocker: Any) -> None:
+    mock_request = mocker.patch("app.plane_client._request", return_value={"results": []})
+
+    await plane_client.list_cycles("acme", "p1", cursor="cur", per_page=7)
+    assert mock_request.call_args_list[0].kwargs["params"] == {
+        "per_page": 7,
+        "cursor": "cur",
+    }
+
+    await plane_client.list_cycles("acme", "p1")
+    # Without a cursor the param is omitted entirely.
+    assert mock_request.call_args_list[1].kwargs["params"] == {"per_page": 20}
+
+
+@pytest.mark.asyncio
+async def test_create_and_update_cycle_send_payload_as_json_body(mocker: Any) -> None:
+    mock_request = mocker.patch("app.plane_client._request", return_value={})
+
+    create_payload = {"name": "Sprint 1", "status": "active"}
+    await plane_client.create_cycle("acme", "p1", create_payload)
+    assert mock_request.call_args_list[0].kwargs["json_body"] == create_payload
+
+    update_payload = {"status": "completed"}
+    await plane_client.update_cycle("acme", "p1", "c1", update_payload)
+    assert mock_request.call_args_list[1].kwargs["json_body"] == update_payload
+
+
+@pytest.mark.asyncio
+async def test_cycle_issues_endpoints(mocker: Any) -> None:
+    mock_request = mocker.patch("app.plane_client._request", return_value={})
+
+    await plane_client.list_cycle_issues("acme", "p1", "c1", cursor="cur", per_page=9)
+    await plane_client.add_cycle_issues(
+        "acme", "p1", "c1", {"issues": ["i1", "i2"]}
+    )
+
+    calls = [c.args for c in mock_request.call_args_list]
+    assert calls[0] == (
+        "GET",
+        "/api/v1/workspaces/acme/projects/p1/cycles/c1/cycle-issues/",
+    )
+    assert calls[1] == (
+        "POST",
+        "/api/v1/workspaces/acme/projects/p1/cycles/c1/cycle-issues/",
+    )
+    assert mock_request.call_args_list[0].kwargs["params"] == {
+        "per_page": 9,
+        "cursor": "cur",
+    }
+    # The bulk-association body is forwarded verbatim under the "issues" key.
+    assert mock_request.call_args_list[1].kwargs["json_body"] == {
+        "issues": ["i1", "i2"]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Modules (epics)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_module_crud_uses_correct_methods_and_urls(mocker: Any) -> None:
+    mock_request = mocker.patch("app.plane_client._request", return_value={"id": "m1"})
+
+    await plane_client.list_modules("acme", "p1", cursor="cur", per_page=5)
+    await plane_client.get_module("acme", "p1", "m1")
+    await plane_client.create_module("acme", "p1", {"name": "Epic 1"})
+    await plane_client.update_module("acme", "p1", "m1", {"name": "Epic 2"})
+
+    calls = [c.args for c in mock_request.call_args_list]
+    assert calls[0] == ("GET", "/api/v1/workspaces/acme/projects/p1/modules/")
+    assert calls[1] == ("GET", "/api/v1/workspaces/acme/projects/p1/modules/m1/")
+    assert calls[2] == ("POST", "/api/v1/workspaces/acme/projects/p1/modules/")
+    assert calls[3] == ("PATCH", "/api/v1/workspaces/acme/projects/p1/modules/m1/")
+
+
+@pytest.mark.asyncio
+async def test_create_and_update_module_send_payload_as_json_body(mocker: Any) -> None:
+    mock_request = mocker.patch("app.plane_client._request", return_value={})
+
+    create_payload = {"name": "Epic 1", "status": "planned"}
+    await plane_client.create_module("acme", "p1", create_payload)
+    assert mock_request.call_args_list[0].kwargs["json_body"] == create_payload
+
+    update_payload = {"status": "completed"}
+    await plane_client.update_module("acme", "p1", "m1", update_payload)
+    assert mock_request.call_args_list[1].kwargs["json_body"] == update_payload
+
+
+@pytest.mark.asyncio
+async def test_module_issues_endpoints(mocker: Any) -> None:
+    mock_request = mocker.patch("app.plane_client._request", return_value={})
+
+    await plane_client.list_module_issues("acme", "p1", "m1", cursor="cur", per_page=9)
+    await plane_client.add_module_issues(
+        "acme", "p1", "m1", {"issues": ["i1", "i2", "i3"]}
+    )
+
+    calls = [c.args for c in mock_request.call_args_list]
+    assert calls[0] == (
+        "GET",
+        "/api/v1/workspaces/acme/projects/p1/modules/m1/module-issues/",
+    )
+    assert calls[1] == (
+        "POST",
+        "/api/v1/workspaces/acme/projects/p1/modules/m1/module-issues/",
+    )
+    assert mock_request.call_args_list[0].kwargs["params"] == {
+        "per_page": 9,
+        "cursor": "cur",
+    }
+    assert mock_request.call_args_list[1].kwargs["json_body"] == {
+        "issues": ["i1", "i2", "i3"]
+    }

@@ -59,6 +59,10 @@
 
 **Task lifecycle operations exposed as MCP tools.** Agents can call `list_tasks`, `get_task`, `create_task`, and `update_task`, scoped to a Plane workspace and project. Delete operations are intentionally omitted.
 
+### Plane cycles & modules
+
+**Sprint and epic planning exposed as MCP tools.** Agents can manage cycles (`list_cycles`, `get_cycle`, `create_cycle`, `update_cycle`, `list_cycle_issues`, `add_cycle_issues`) and modules (`list_modules`, `get_module`, `create_module`, `update_module`, `list_module_issues`, `add_module_issues`), scoped to a Plane workspace and project. Work items are associated to a cycle or module in bulk via their UUIDs. Delete operations are intentionally omitted.
+
 ### Validated and secured inputs
 
 **Pydantic schemas and request guards.** All tool inputs are validated, outputs are JSON-serialized, and requests are protected by origin validation and IP-based rate limiting.

@@ -15,8 +15,14 @@ from app.tools import (
     _resolve_state_id,
     _workspace_arg,
     _workspace_project_args,
+    handle_add_cycle_issues,
+    handle_add_module_issues,
+    handle_create_cycle,
+    handle_create_module,
     handle_create_task,
     handle_get_workspace,
+    handle_update_cycle,
+    handle_update_module,
     handle_update_task,
 )
 
@@ -251,3 +257,283 @@ async def test_handler_result_can_be_serialized() -> None:
     result = await handle_get_workspace({})
     assert isinstance(result, MCPToolResult)
     assert result.model_dump()["isError"] is True
+
+
+# ---------------------------------------------------------------------------
+# Cycle handlers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_create_cycle_sends_validated_payload(mocker: Any) -> None:
+    mock_create = mocker.patch(
+        "app.tools.plane_create_cycle",
+        return_value={"id": "cycle-1", "name": "Sprint 1"},
+    )
+
+    result = await handle_create_cycle(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "name": "Sprint 1",
+            "start_date": "2026-01-01",
+            "end_date": "2026-01-14",
+            "status": "active",
+        }
+    )
+
+    assert result.isError is False
+    assert "cycle-1" in result.content[0].text
+    ws, project, payload = mock_create.call_args[0]
+    assert (ws, project) == ("acme", "p1")
+    assert payload["name"] == "Sprint 1"
+    # Dates are serialized to ISO strings (mode="json"), not date objects.
+    assert payload["start_date"] == "2026-01-01"
+    assert payload["end_date"] == "2026-01-14"
+    assert payload["status"] == "active"
+    # project_id must be included in the POST body (Plane requires it).
+    assert payload["project_id"] == "p1"
+
+
+@pytest.mark.asyncio
+async def test_handle_create_cycle_rejects_empty_name(mocker: Any) -> None:
+    mock_create = mocker.patch("app.tools.plane_create_cycle")
+    result = await handle_create_cycle(
+        {"workspace_slug": "acme", "project_id": "p1", "name": ""}
+    )
+    assert result.isError is True
+    assert "Invalid cycle payload" in result.content[0].text
+    mock_create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_create_cycle_requires_workspace_and_project(mocker: Any) -> None:
+    result = await handle_create_cycle({"workspace_slug": "acme", "name": "Sprint"})
+    assert result.isError is True
+    assert "project_id" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_handle_create_cycle_surfaces_plane_error(mocker: Any) -> None:
+    mocker.patch(
+        "app.tools.plane_create_cycle",
+        side_effect=PlaneAPIError("boom"),
+    )
+    result = await handle_create_cycle(
+        {"workspace_slug": "acme", "project_id": "p1", "name": "Sprint"}
+    )
+    assert result.isError is True
+    assert "Failed to create cycle" in result.content[0].text
+    assert "boom" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_handle_update_cycle_sends_only_provided_fields(mocker: Any) -> None:
+    mock_update = mocker.patch(
+        "app.tools.plane_update_cycle",
+        return_value={"id": "cycle-1"},
+    )
+    result = await handle_update_cycle(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "cycle_id": "cycle-1",
+            "status": "completed",
+        }
+    )
+    assert result.isError is False
+    ws, project, cycle_id, payload = mock_update.call_args[0]
+    assert (ws, project, cycle_id) == ("acme", "p1", "cycle-1")
+    assert payload == {"status": "completed"}
+
+
+@pytest.mark.asyncio
+async def test_handle_update_cycle_requires_cycle_id(mocker: Any) -> None:
+    result = await handle_update_cycle(
+        {"workspace_slug": "acme", "project_id": "p1", "name": "X"}
+    )
+    assert result.isError is True
+    assert "cycle_id" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_handle_update_cycle_no_updatable_fields(mocker: Any) -> None:
+    result = await handle_update_cycle(
+        {"workspace_slug": "acme", "project_id": "p1", "cycle_id": "cycle-1"}
+    )
+    assert result.isError is True
+    assert "No updatable fields" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_handle_add_cycle_issues_body_shape(mocker: Any) -> None:
+    mock_add = mocker.patch(
+        "app.tools.plane_add_cycle_issues",
+        return_value={"added": 2},
+    )
+    result = await handle_add_cycle_issues(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "cycle_id": "cycle-1",
+            "issues": ["i1", "i2"],
+        }
+    )
+    assert result.isError is False
+    ws, project, cycle_id, body = mock_add.call_args[0]
+    assert (ws, project, cycle_id) == ("acme", "p1", "cycle-1")
+    assert body == {"issues": ["i1", "i2"]}
+
+
+@pytest.mark.asyncio
+async def test_handle_add_cycle_issues_rejects_empty_list(mocker: Any) -> None:
+    mock_add = mocker.patch("app.tools.plane_add_cycle_issues")
+    result = await handle_add_cycle_issues(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "cycle_id": "cycle-1",
+            "issues": [],
+        }
+    )
+    assert result.isError is True
+    assert "non-empty list" in result.content[0].text
+    mock_add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_add_cycle_issues_rejects_non_list(mocker: Any) -> None:
+    mock_add = mocker.patch("app.tools.plane_add_cycle_issues")
+    result = await handle_add_cycle_issues(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "cycle_id": "cycle-1",
+            "issues": "i1",
+        }
+    )
+    assert result.isError is True
+    assert "non-empty list" in result.content[0].text
+    mock_add.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Module handlers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_create_module_sends_validated_payload(mocker: Any) -> None:
+    mock_create = mocker.patch(
+        "app.tools.plane_create_module",
+        return_value={"id": "mod-1", "name": "Epic 1"},
+    )
+    result = await handle_create_module(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "name": "Epic 1",
+            "status": "planned",
+            "start_date": "2026-02-01",
+            "lead": "user-uuid",
+        }
+    )
+    assert result.isError is False
+    assert "mod-1" in result.content[0].text
+    ws, project, payload = mock_create.call_args[0]
+    assert (ws, project) == ("acme", "p1")
+    assert payload["name"] == "Epic 1"
+    assert payload["status"] == "planned"
+    assert payload["start_date"] == "2026-02-01"
+    assert payload["lead"] == "user-uuid"
+    # project_id must be included in the POST body (Plane requires it).
+    assert payload["project_id"] == "p1"
+    # Unset optional fields must not be sent.
+    assert "target_date" not in payload
+    assert "description" not in payload
+
+
+@pytest.mark.asyncio
+async def test_handle_create_module_rejects_empty_name(mocker: Any) -> None:
+    mock_create = mocker.patch("app.tools.plane_create_module")
+    result = await handle_create_module(
+        {"workspace_slug": "acme", "project_id": "p1", "name": ""}
+    )
+    assert result.isError is True
+    assert "Invalid module payload" in result.content[0].text
+    mock_create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_update_module_sends_only_provided_fields(mocker: Any) -> None:
+    mock_update = mocker.patch(
+        "app.tools.plane_update_module",
+        return_value={"id": "mod-1"},
+    )
+    result = await handle_update_module(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "module_id": "mod-1",
+            "name": "Renamed",
+            "status": "in-progress",
+        }
+    )
+    assert result.isError is False
+    ws, project, module_id, payload = mock_update.call_args[0]
+    assert (ws, project, module_id) == ("acme", "p1", "mod-1")
+    assert payload == {"name": "Renamed", "status": "in-progress"}
+
+
+@pytest.mark.asyncio
+async def test_handle_update_module_no_updatable_fields(mocker: Any) -> None:
+    result = await handle_update_module(
+        {"workspace_slug": "acme", "project_id": "p1", "module_id": "mod-1"}
+    )
+    assert result.isError is True
+    assert "No updatable fields" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_handle_update_module_requires_module_id(mocker: Any) -> None:
+    result = await handle_update_module(
+        {"workspace_slug": "acme", "project_id": "p1", "status": "completed"}
+    )
+    assert result.isError is True
+    assert "module_id" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_handle_add_module_issues_body_shape(mocker: Any) -> None:
+    mock_add = mocker.patch(
+        "app.tools.plane_add_module_issues",
+        return_value={"added": 3},
+    )
+    result = await handle_add_module_issues(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "module_id": "mod-1",
+            "issues": ["i1", "i2", "i3"],
+        }
+    )
+    assert result.isError is False
+    ws, project, module_id, body = mock_add.call_args[0]
+    assert (ws, project, module_id) == ("acme", "p1", "mod-1")
+    assert body == {"issues": ["i1", "i2", "i3"]}
+
+
+@pytest.mark.asyncio
+async def test_handle_add_module_issues_rejects_empty_list(mocker: Any) -> None:
+    mock_add = mocker.patch("app.tools.plane_add_module_issues")
+    result = await handle_add_module_issues(
+        {
+            "workspace_slug": "acme",
+            "project_id": "p1",
+            "module_id": "mod-1",
+            "issues": [],
+        }
+    )
+    assert result.isError is True
+    assert "non-empty list" in result.content[0].text
+    mock_add.assert_not_called()

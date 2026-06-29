@@ -16,6 +16,10 @@ from typing import Any, Awaitable, Callable, Optional
 from .models import (
     MCPContent,
     MCPToolResult,
+    PlaneCycleCreate,
+    PlaneCycleUpdate,
+    PlaneModuleCreate,
+    PlaneModuleUpdate,
     PlaneProjectCreate,
     PlaneProjectMemberCreate,
     PlaneProjectMemberUpdate,
@@ -27,22 +31,34 @@ from .models import (
     PlaneWorkspaceInviteUpdate,
     PlaneWorkspaceMemberUpdate,
     PlaneWorkspaceUpdate,
+    CYCLE_STATUS_VALUES,
+    MODULE_STATUS_VALUES,
     PRIORITY_VALUES,
     ROLE_VALUES,
 )
 from .plane_client import (
     PlaneAPIError,
+    add_cycle_issues as plane_add_cycle_issues,
+    add_module_issues as plane_add_module_issues,
     archive_project as plane_archive_project,
+    create_cycle as plane_create_cycle,
+    create_module as plane_create_module,
     create_project as plane_create_project,
     create_project_member as plane_create_project_member,
     create_task as plane_create_task,
     create_workspace as plane_create_workspace,
     create_workspace_invite as plane_create_workspace_invite,
+    get_cycle as plane_get_cycle,
+    get_module as plane_get_module,
     get_project as plane_get_project,
     get_project_member as plane_get_project_member,
     get_task as plane_get_task,
     get_workspace as plane_get_workspace,
     get_workspace_invite as plane_get_workspace_invite,
+    list_cycle_issues as plane_list_cycle_issues,
+    list_cycles as plane_list_cycles,
+    list_module_issues as plane_list_module_issues,
+    list_modules as plane_list_modules,
     list_projects as plane_list_projects,
     list_project_members as plane_list_project_members,
     list_states as plane_list_states,
@@ -51,6 +67,8 @@ from .plane_client import (
     list_workspace_members as plane_list_workspace_members,
     list_workspaces as plane_list_workspaces,
     unarchive_project as plane_unarchive_project,
+    update_cycle as plane_update_cycle,
+    update_module as plane_update_module,
     update_project as plane_update_project,
     update_project_member as plane_update_project_member,
     update_task as plane_update_task,
@@ -618,6 +636,304 @@ TOOLS: list[dict] = [
             "additionalProperties": False,
         },
     },
+    # ------------------------------------------------------------------
+    # Cycles (sprints)
+    # ------------------------------------------------------------------
+    {
+        "name": "list_cycles",
+        "description": (
+            "List cycles (sprints) in a Plane project. Returns paginated, "
+            "cursor-based results."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                **PAGINATION_PROPS,
+            },
+            "required": ["workspace_slug", "project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_cycle",
+        "description": "Retrieve a single Plane cycle by its ID.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "cycle_id": {
+                    "type": "string",
+                    "description": "UUID of the cycle",
+                },
+            },
+            "required": ["workspace_slug", "project_id", "cycle_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "create_cycle",
+        "description": "Create a new cycle (sprint) in a Plane project.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "name": {
+                    "type": "string",
+                    "description": "Cycle name",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Cycle description text",
+                },
+                "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date in YYYY-MM-DD format",
+                },
+                "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date in YYYY-MM-DD format",
+                },
+                "status": {
+                    "type": "string",
+                    "enum": CYCLE_STATUS_VALUES,
+                    "description": "Cycle status",
+                },
+            },
+            "required": ["workspace_slug", "project_id", "name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "update_cycle",
+        "description": "Partially update an existing Plane cycle.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "cycle_id": {
+                    "type": "string",
+                    "description": "UUID of the cycle to update",
+                },
+                "name": {"type": "string", "description": "New cycle name"},
+                "description": {"type": "string", "description": "New description"},
+                "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "New start date in YYYY-MM-DD format",
+                },
+                "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "New end date in YYYY-MM-DD format",
+                },
+                "status": {
+                    "type": "string",
+                    "enum": CYCLE_STATUS_VALUES,
+                    "description": "New cycle status",
+                },
+            },
+            "required": ["workspace_slug", "project_id", "cycle_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "list_cycle_issues",
+        "description": (
+            "List work items (issues) assigned to a Plane cycle. Returns "
+            "paginated, cursor-based results."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "cycle_id": {
+                    "type": "string",
+                    "description": "UUID of the cycle",
+                },
+                **PAGINATION_PROPS,
+            },
+            "required": ["workspace_slug", "project_id", "cycle_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "add_cycle_issues",
+        "description": "Add existing work items to a Plane cycle (bulk association).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "cycle_id": {
+                    "type": "string",
+                    "description": "UUID of the cycle",
+                },
+                "issues": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "description": "List of work-item UUIDs to add to the cycle",
+                },
+            },
+            "required": ["workspace_slug", "project_id", "cycle_id", "issues"],
+            "additionalProperties": False,
+        },
+    },
+    # ------------------------------------------------------------------
+    # Modules (epics)
+    # ------------------------------------------------------------------
+    {
+        "name": "list_modules",
+        "description": (
+            "List modules (epics) in a Plane project. Returns paginated, "
+            "cursor-based results."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                **PAGINATION_PROPS,
+            },
+            "required": ["workspace_slug", "project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_module",
+        "description": "Retrieve a single Plane module by its ID.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "module_id": {
+                    "type": "string",
+                    "description": "UUID of the module",
+                },
+            },
+            "required": ["workspace_slug", "project_id", "module_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "create_module",
+        "description": "Create a new module (epic) in a Plane project.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "name": {
+                    "type": "string",
+                    "description": "Module name",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Module description text",
+                },
+                "status": {
+                    "type": "string",
+                    "enum": MODULE_STATUS_VALUES,
+                    "description": "Module status",
+                },
+                "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date in YYYY-MM-DD format",
+                },
+                "target_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Module target/due date in YYYY-MM-DD format",
+                },
+                "lead": {
+                    "type": "string",
+                    "description": "User UUID of the module lead",
+                },
+            },
+            "required": ["workspace_slug", "project_id", "name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "update_module",
+        "description": "Partially update an existing Plane module.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "module_id": {
+                    "type": "string",
+                    "description": "UUID of the module to update",
+                },
+                "name": {"type": "string", "description": "New module name"},
+                "description": {"type": "string", "description": "New description"},
+                "status": {
+                    "type": "string",
+                    "enum": MODULE_STATUS_VALUES,
+                    "description": "New module status",
+                },
+                "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "New start date in YYYY-MM-DD format",
+                },
+                "target_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Module target/due date in YYYY-MM-DD format",
+                },
+                "lead": {
+                    "type": "string",
+                    "description": "New module lead user UUID",
+                },
+            },
+            "required": ["workspace_slug", "project_id", "module_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "list_module_issues",
+        "description": (
+            "List work items (issues) associated with a Plane module. Returns "
+            "paginated, cursor-based results."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "module_id": {
+                    "type": "string",
+                    "description": "UUID of the module",
+                },
+                **PAGINATION_PROPS,
+            },
+            "required": ["workspace_slug", "project_id", "module_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "add_module_issues",
+        "description": "Associate existing work items with a Plane module (bulk association).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                **WORKSPACE_PROJECT_PROPS,
+                "module_id": {
+                    "type": "string",
+                    "description": "UUID of the module",
+                },
+                "issues": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "description": "List of work-item UUIDs to add to the module",
+                },
+            },
+            "required": ["workspace_slug", "project_id", "module_id", "issues"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -1110,6 +1426,305 @@ async def handle_update_task(args: dict) -> MCPToolResult:
     return _json_result(data)
 
 
+# --- Cycles (sprints) ------------------------------------------------------
+
+
+async def handle_list_cycles(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    try:
+        data = await plane_list_cycles(
+            workspace,
+            project,
+            cursor=args.get("cursor"),
+            per_page=args.get("per_page", 20),
+        )
+    except PlaneAPIError as e:
+        return _text(f"Failed to list cycles: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_get_cycle(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    cycle_id = args.get("cycle_id")
+    if not cycle_id:
+        return _text("'cycle_id' is required.", error=True)
+
+    try:
+        data = await plane_get_cycle(workspace, project, cycle_id)
+    except PlaneAPIError as e:
+        return _text(f"Failed to get cycle {cycle_id}: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_create_cycle(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    try:
+        payload = PlaneCycleCreate(
+            name=args["name"],
+            description=args.get("description"),
+            start_date=args.get("start_date"),
+            end_date=args.get("end_date"),
+            status=args.get("status"),
+        ).model_dump(mode="json", exclude_none=True)
+    except (KeyError, ValueError, TypeError) as e:
+        return _text(f"Invalid cycle payload: {e}", error=True)
+
+    payload["project_id"] = project
+
+    try:
+        data = await plane_create_cycle(workspace, project, payload)
+    except PlaneAPIError as e:
+        return _text(f"Failed to create cycle: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_update_cycle(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    cycle_id = args.get("cycle_id")
+    if not cycle_id:
+        return _text("'cycle_id' is required.", error=True)
+
+    update_fields = {
+        k: v
+        for k, v in args.items()
+        if k in {"name", "description", "start_date", "end_date", "status"}
+        and v is not None
+    }
+    if not update_fields:
+        return _text("No updatable fields provided.", error=True)
+
+    try:
+        validated = PlaneCycleUpdate(**update_fields)
+    except (ValueError, TypeError) as e:
+        return _text(f"Invalid update payload: {e}", error=True)
+
+    try:
+        data = await plane_update_cycle(
+            workspace,
+            project,
+            cycle_id,
+            validated.model_dump(mode="json", exclude_none=True),
+        )
+    except PlaneAPIError as e:
+        return _text(f"Failed to update cycle {cycle_id}: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_list_cycle_issues(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    cycle_id = args.get("cycle_id")
+    if not cycle_id:
+        return _text("'cycle_id' is required.", error=True)
+
+    try:
+        data = await plane_list_cycle_issues(
+            workspace,
+            project,
+            cycle_id,
+            cursor=args.get("cursor"),
+            per_page=args.get("per_page", 20),
+        )
+    except PlaneAPIError as e:
+        return _text(f"Failed to list cycle issues: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_add_cycle_issues(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    cycle_id = args.get("cycle_id")
+    if not cycle_id:
+        return _text("'cycle_id' is required.", error=True)
+
+    issues = args.get("issues")
+    if not isinstance(issues, list) or not issues:
+        return _text(
+            "'issues' is required and must be a non-empty list of work-item UUIDs.",
+            error=True,
+        )
+
+    try:
+        data = await plane_add_cycle_issues(
+            workspace, project, cycle_id, {"issues": issues}
+        )
+    except PlaneAPIError as e:
+        return _text(f"Failed to add issues to cycle {cycle_id}: {e}", error=True)
+    return _json_result(data)
+
+
+# --- Modules (epics) -------------------------------------------------------
+
+
+async def handle_list_modules(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    try:
+        data = await plane_list_modules(
+            workspace,
+            project,
+            cursor=args.get("cursor"),
+            per_page=args.get("per_page", 20),
+        )
+    except PlaneAPIError as e:
+        return _text(f"Failed to list modules: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_get_module(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    module_id = args.get("module_id")
+    if not module_id:
+        return _text("'module_id' is required.", error=True)
+
+    try:
+        data = await plane_get_module(workspace, project, module_id)
+    except PlaneAPIError as e:
+        return _text(f"Failed to get module {module_id}: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_create_module(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    try:
+        payload = PlaneModuleCreate(
+            name=args["name"],
+            description=args.get("description"),
+            status=args.get("status"),
+            start_date=args.get("start_date"),
+            target_date=args.get("target_date"),
+            lead=args.get("lead"),
+        ).model_dump(mode="json", exclude_none=True)
+    except (KeyError, ValueError, TypeError) as e:
+        return _text(f"Invalid module payload: {e}", error=True)
+
+    payload["project_id"] = project
+
+    try:
+        data = await plane_create_module(workspace, project, payload)
+    except PlaneAPIError as e:
+        return _text(f"Failed to create module: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_update_module(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    module_id = args.get("module_id")
+    if not module_id:
+        return _text("'module_id' is required.", error=True)
+
+    update_fields = {
+        k: v
+        for k, v in args.items()
+        if k in {"name", "description", "status", "start_date", "target_date", "lead"}
+        and v is not None
+    }
+    if not update_fields:
+        return _text("No updatable fields provided.", error=True)
+
+    try:
+        validated = PlaneModuleUpdate(**update_fields)
+    except (ValueError, TypeError) as e:
+        return _text(f"Invalid update payload: {e}", error=True)
+
+    try:
+        data = await plane_update_module(
+            workspace,
+            project,
+            module_id,
+            validated.model_dump(mode="json", exclude_none=True),
+        )
+    except PlaneAPIError as e:
+        return _text(f"Failed to update module {module_id}: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_list_module_issues(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    module_id = args.get("module_id")
+    if not module_id:
+        return _text("'module_id' is required.", error=True)
+
+    try:
+        data = await plane_list_module_issues(
+            workspace,
+            project,
+            module_id,
+            cursor=args.get("cursor"),
+            per_page=args.get("per_page", 20),
+        )
+    except PlaneAPIError as e:
+        return _text(f"Failed to list module issues: {e}", error=True)
+    return _json_result(data)
+
+
+async def handle_add_module_issues(args: dict) -> MCPToolResult:
+    try:
+        workspace, project = _workspace_project_args(args)
+    except ValueError as e:
+        return _text(str(e), error=True)
+
+    module_id = args.get("module_id")
+    if not module_id:
+        return _text("'module_id' is required.", error=True)
+
+    issues = args.get("issues")
+    if not isinstance(issues, list) or not issues:
+        return _text(
+            "'issues' is required and must be a non-empty list of work-item UUIDs.",
+            error=True,
+        )
+
+    try:
+        data = await plane_add_module_issues(
+            workspace, project, module_id, {"issues": issues}
+        )
+    except PlaneAPIError as e:
+        return _text(f"Failed to add issues to module {module_id}: {e}", error=True)
+    return _json_result(data)
+
+
 ToolHandler = Callable[[dict], Awaitable[MCPToolResult]]
 
 # Dispatch map — built from TOOLS so names can never drift from the manifest.
@@ -1143,6 +1758,20 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "get_task": handle_get_task,
     "create_task": handle_create_task,
     "update_task": handle_update_task,
+    # Cycles
+    "list_cycles": handle_list_cycles,
+    "get_cycle": handle_get_cycle,
+    "create_cycle": handle_create_cycle,
+    "update_cycle": handle_update_cycle,
+    "list_cycle_issues": handle_list_cycle_issues,
+    "add_cycle_issues": handle_add_cycle_issues,
+    # Modules
+    "list_modules": handle_list_modules,
+    "get_module": handle_get_module,
+    "create_module": handle_create_module,
+    "update_module": handle_update_module,
+    "list_module_issues": handle_list_module_issues,
+    "add_module_issues": handle_add_module_issues,
 }
 
 # Sanity check: every manifest entry must have a handler and vice versa.

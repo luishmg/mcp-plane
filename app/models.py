@@ -209,6 +209,81 @@ class PlaneProjectUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Cycle (sprint) models
+# ---------------------------------------------------------------------------
+
+CYCLE_STATUS_VALUES = ["draft", "active", "completed", "cancelled"]
+
+
+class PlaneCycleCreate(BaseModel):
+    """Payload for creating a Plane cycle (sprint)."""
+
+    name: str = Field(..., min_length=1, max_length=255, description="Cycle name")
+    description: Optional[str] = Field(
+        None, max_length=10000, description="Cycle description text"
+    )
+    start_date: Optional[date] = Field(
+        None, description="Start date in YYYY-MM-DD format"
+    )
+    end_date: Optional[date] = Field(
+        None, description="End date in YYYY-MM-DD format"
+    )
+    status: Optional[str] = Field(
+        None, description="Cycle status: draft|active|completed|cancelled"
+    )
+
+
+class PlaneCycleUpdate(BaseModel):
+    """Payload for partially updating a Plane cycle. All fields optional."""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=10000)
+    start_date: Optional[date] = Field(None)
+    end_date: Optional[date] = Field(None)
+    status: Optional[str] = Field(None)
+
+
+# ---------------------------------------------------------------------------
+# Module (epic) models
+# ---------------------------------------------------------------------------
+
+MODULE_STATUS_VALUES = ["backlog", "planned", "in-progress", "paused", "completed", "cancelled"]
+
+
+class PlaneModuleCreate(BaseModel):
+    """Payload for creating a Plane module (epic)."""
+
+    name: str = Field(..., min_length=1, max_length=255, description="Module name")
+    description: Optional[str] = Field(
+        None, max_length=5000, description="Module description text"
+    )
+    status: Optional[str] = Field(
+        None,
+        description="Module status: PLANNED|IN_PROGRESS|COMPLETED|CANCELLED",
+    )
+    start_date: Optional[date] = Field(
+        None, description="Start date in YYYY-MM-DD format"
+    )
+    target_date: Optional[date] = Field(
+        None, description="Target/end date in YYYY-MM-DD format"
+    )
+    lead: Optional[str] = Field(
+        None, description="User UUID of the module lead"
+    )
+
+
+class PlaneModuleUpdate(BaseModel):
+    """Payload for partially updating a Plane module. All fields optional."""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=5000)
+    status: Optional[str] = Field(None)
+    start_date: Optional[date] = Field(None)
+    target_date: Optional[date] = Field(None)
+    lead: Optional[str] = Field(None)
+
+
+# ---------------------------------------------------------------------------
 # Workspace member & invite models
 # ---------------------------------------------------------------------------
 
