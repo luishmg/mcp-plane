@@ -23,6 +23,7 @@
 - [Getting Started](#getting-started)
 - [Usage](#usage)
 - [Configuration](#configuration)
+- [Testing](#testing)
 - [Security](#security)
 - [License](#license)
 
@@ -80,9 +81,20 @@ mcp-plane/
 │   ├── plane_client.py     # Async Plane REST client
 │   ├── models.py           # Pydantic models
 │   └── config.py           # Env-driven settings
+├── tests/                  # pytest suite (asyncio_mode=auto)
+│   ├── conftest.py
+│   ├── test_config.py
+│   ├── test_errors.py
+│   ├── test_middleware.py
+│   ├── test_models.py
+│   ├── test_plane_client.py
+│   ├── test_server.py
+│   └── test_tools.py
 ├── Dockerfile
 ├── docker-compose.yml
+├── pytest.ini
 ├── requirements.txt
+├── requirements-dev.txt
 └── .env.example
 ```
 
@@ -155,11 +167,41 @@ Workspace tools require `workspace_slug`. Project and task tools also require `p
 | `PLANE_MCP_TOKEN` | ✅ | — | Plane API token (sent as `X-API-Key`) |
 | `MCP_AUTH_TOKEN` | ❌ | _(empty)_ | When set, MCP clients must send `Authorization: Bearer <token>` on `/mcp`. Leave empty to disable client auth. |
 | `PLANE_API_BASE` | ❌ | `http://umbrel:8762` | Base URL of your Plane instance |
-| `HOST` | ❌ | `0.0.0.0` | Bind address |
+| `HOST` | ❌ | `127.0.0.1` | Bind address (the bundled `docker-compose.yml` overrides this to `0.0.0.0` inside the container and publishes the port only on loopback) |
 | `PORT` | ❌ | `8763` | Listen port |
 | `ALLOWED_ORIGINS` | ❌ | _(empty)_ | Comma-separated allowed `Origin` values |
 | `REQUEST_TIMEOUT_SECONDS` | ❌ | `15` | Per-request timeout to Plane |
 | `RATE_LIMIT_PER_MINUTE` | ❌ | `60` | Max MCP requests/min/IP |
+
+---
+
+## 🧪 Testing
+
+The test suite uses `pytest` with `asyncio_mode = auto` (see `pytest.ini`), so async tests run without explicit markers.
+
+```bash
+# install dev dependencies (pytest, pytest-asyncio, pytest-mock)
+pip install -r requirements.txt -r requirements-dev.txt
+
+# run the full suite
+pytest
+
+# run a single file or a single test
+pytest tests/test_tools.py
+pytest tests/test_tools.py::test_name
+```
+
+| Test file | Covers |
+|---|---|
+| `tests/test_config.py` | Environment-driven settings and fail-fast behavior |
+| `tests/test_errors.py` | Error mapping and JSON-RPC error responses |
+| `tests/test_middleware.py` | Origin validation, client auth, and rate limiting |
+| `tests/test_models.py` | Pydantic schema validation |
+| `tests/test_plane_client.py` | Async Plane REST client behavior |
+| `tests/test_server.py` | MCP lifecycle endpoints (`initialize`, `tools/list`, `tools/call`, `ping`) |
+| `tests/test_tools.py` | Tool manifest and handler dispatch |
+
+Shared fixtures live in `tests/conftest.py`.
 
 ---
 
